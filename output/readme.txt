@@ -1,1 +1,0 @@
-Checkpoint output images go here

@@ -22,20 +22,20 @@ x = np.array(x)
 y = np.array(y)
 
 model = Sequential()
-model.add(Dense(20, input_dim=2))
+model.add(Dense(30, input_dim=2))
 model.add(Activation('relu'))
-model.add(Dense(20))
+model.add(Dense(30))
 model.add(Activation('relu'))
-model.add(Dense(20))
+model.add(Dense(30))
 model.add(Activation('relu'))
-model.add(Dense(20))
+model.add(Dense(30))
 model.add(Activation('relu'))
 model.add(Dense(1))
 model.add(Activation('relu'))
 
 model.compile(
     loss='mean_squared_error',
-    optimizer=SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    optimizer='rmsprop'
 )
 
 
@@ -43,7 +43,7 @@ class CheckpointOutputs(Callback):
     def __init__(self):
         super(CheckpointOutputs, self).__init__()
         self.last_loss_checkpoint = 9001  # it's over 9000!
-        self.loss_change_threshold = 0.01
+        self.loss_change_threshold = 0.05
 
     def on_epoch_end(self, epoch, logs=None):
         if logs is None:
@@ -59,7 +59,7 @@ class CheckpointOutputs(Callback):
             with warnings.catch_warnings():
                 output_file_path = os.path.join(
                     'output',
-                    'keyboard_predicted_{}.png'.format(epoch)
+                    'keyboard_predicted_{:04d}.png'.format(epoch)
                 )
                 imsave(output_file_path, predicted_image)
 
@@ -69,7 +69,7 @@ history = model.fit(
     x,
     y,
     batch_size=128,
-    nb_epoch=900,
+    nb_epoch=1000,
     shuffle=True,
     callbacks=[checkpoint_outputs]
 )
