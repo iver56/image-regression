@@ -1,0 +1,5 @@
+scikit-image==0.12.3
+Pillow==2.3.0
+Keras==1.2.0
+h5py==2.6.0
+tensorflow==0.12.1
