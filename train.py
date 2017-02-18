@@ -2,14 +2,15 @@ from __future__ import division
 from skimage.io import imread, imsave
 from keras.models import Sequential
 from keras.layers import Activation, Dense
-from keras.optimizers import SGD
 from keras.callbacks import Callback
 import numpy as np
 import warnings
 import os
 
 image_filename = 'keyboard.png'
-image = imread(image_filename, as_grey=True)
+image = imread(image_filename, as_grey=True, plugin='pil')
+if str(image.dtype) == 'uint8':
+    image = np.divide(image, 255.0)
 img_width, img_height = image.shape
 
 x = []
