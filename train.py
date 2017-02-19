@@ -6,9 +6,14 @@ from keras.callbacks import Callback
 import numpy as np
 import warnings
 import os
+import argparse
 
-image_filename = 'keyboard.png'
-image = imread(image_filename, as_grey=True, plugin='pil')
+arg_parser = argparse.ArgumentParser()
+arg_parser.add_argument('-i', help='File name of input image', dest='input_filename', type=str, default='keyboard.png')
+arg_parser.add_argument('--num-epochs', help='Number of epochs', dest='num_epochs', type=int, default=1000)
+args = arg_parser.parse_args()
+
+image = imread(args.input_filename, as_grey=True, plugin='pil')
 if str(image.dtype) == 'uint8':
     image = np.divide(image, 255.0)
 img_width, img_height = image.shape
@@ -60,7 +65,7 @@ class CheckpointOutputs(Callback):
             with warnings.catch_warnings():
                 output_file_path = os.path.join(
                     'output',
-                    'keyboard_predicted_{:04d}.png'.format(epoch)
+                    '{0}_predicted_{1:04d}.png'.format(args.input_filename, epoch)
                 )
                 imsave(output_file_path, predicted_image)
 
@@ -70,7 +75,7 @@ history = model.fit(
     x,
     y,
     batch_size=128,
-    nb_epoch=1000,
+    nb_epoch=args.num_epochs,
     shuffle=True,
     callbacks=[checkpoint_outputs]
 )
