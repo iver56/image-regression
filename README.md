@@ -2,10 +2,9 @@
 
 A toy application that learns a mapping from (x, y) coordinates to color.
 
-Example image (target):
+## Examples
 
-![Original image](keyboard.png)
-
-Learned image:
-
-![During learning](keyboard-learning.gif)
+| Name | Original | Learned image |
+| ---- | -------- | ------------- |
+| Keyboard | ![Original image](keyboard.png) | ![Learned image](keyboard-learning.gif) |
+| Keyboard | ![Original image](chess.png) | ![Learned image](chess-learning.gif) |
