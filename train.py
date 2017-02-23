@@ -16,7 +16,7 @@ args = arg_parser.parse_args()
 image = imread(args.input_filename, as_grey=True, plugin='pil')
 if str(image.dtype) == 'uint8':
     image = np.divide(image, 255.0)
-img_width, img_height = image.shape
+img_height, img_width = image.shape
 
 x = []
 y = []
