@@ -1,12 +1,13 @@
 from __future__ import division
+import os
+import warnings
+import argparse
+
 from skimage.io import imread, imsave
 from keras.models import Sequential
 from keras.layers import Activation, Dense
 from keras.callbacks import Callback
 import numpy as np
-import warnings
-import os
-import argparse
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-i', help='File name of input image', dest='input_filename', type=str, default='keyboard.png')
@@ -75,7 +76,7 @@ history = model.fit(
     x,
     y,
     batch_size=128,
-    nb_epoch=args.num_epochs,
+    epochs=args.num_epochs,
     shuffle=True,
     callbacks=[checkpoint_outputs]
 )
