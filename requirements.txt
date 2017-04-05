@@ -1,6 +1,6 @@
 scikit-image>=0.12.3
 Pillow>=2.3.0
-Keras>=2.0.2
+Keras>=2.0.0
 h5py>=2.6.0
 tensorflow>=1.0.1
-numpy>=1.12.1
+numpy>=1.12.0
