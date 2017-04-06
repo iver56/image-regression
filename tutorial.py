@@ -42,7 +42,8 @@ model.add(Activation('relu'))
 
 model.compile(loss='mean_squared_error', optimizer='sgd')
 
-model.fit(x, y, epochs=1000)
+model.fit(x, y, epochs=500)
+# epochs=500 means it'll sweep the data 500 times during the training process
 # The loss should go down from around [0.5, 0.3] to somewhere around [0.004, 0.01]
 
 predicted_image = model.predict(x, verbose=False).reshape(image.shape)
