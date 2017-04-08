@@ -2,6 +2,7 @@ from __future__ import division
 import os
 import warnings
 import argparse
+import math
 
 from keras.models import load_model
 from skimage.io import imsave
@@ -45,13 +46,23 @@ model = load_model(args.model_filename)
 image_datasets = []
 steps_per_image = 10
 
+
+def smoothstep(minimum, maximum, value):
+    that_x = max(0, min(1, (value - minimum) / (maximum - minimum)))
+    return that_x * that_x * (3 - 2 * that_x)
+
+
 for k in range(args.num_images):
     for l in range(steps_per_image):
         x = []
         one_hot_vector = [0] * args.num_images
         progress = l / steps_per_image
+        progress = smoothstep(0, 1, progress)
+        progress = smoothstep(0, 1, progress)
+
         current_value = 1 - progress
-        next_value = progress
+        current_value = (math.sqrt(current_value) + current_value) / 2.0
+        next_value = (math.sqrt(progress) + progress) / 2.0
         one_hot_vector[k] = current_value
         one_hot_vector[(k + 1) % args.num_images] = next_value
         for i in range(args.image_height):
