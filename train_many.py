@@ -2,6 +2,8 @@ from __future__ import division
 import os
 import warnings
 import argparse
+import hashlib
+import json
 
 from skimage.io import imread, imsave
 from keras.models import Sequential
@@ -18,7 +20,13 @@ arg_parser.add_argument(
     help='File names of input images',
     default=['keyboard.png']
 )
-arg_parser.add_argument('--num-epochs', help='Number of epochs', dest='num_epochs', type=int, default=5000)
+arg_parser.add_argument(
+    '--num-epochs',
+    help='Number of epochs',
+    dest='num_epochs',
+    type=int,
+    default=750
+)
 args = arg_parser.parse_args()
 
 images = []
@@ -33,31 +41,47 @@ img_height, img_width = images[0].shape
 for image in images:
     assert image.shape == images[0].shape
 
+image_filenames_hash = hashlib.md5(json.dumps(args.image_filenames).encode('utf-8')).hexdigest()[:8]
 num_images = len(images)
 
 x = []
 y = []
-for i in range(img_height):
-    for j in range(img_width):
-        coordinate_y = 2 * (i / (img_height - 1) - 0.5)
-        coordinate_x = 2 * (j / (img_width - 1) - 0.5)
-        for k, image in enumerate(images):
-            one_hot_vector = [0] * num_images
-            one_hot_vector[k] = 1
+image_datasets = []
+for k, image in enumerate(images):
+    image_dataset_x = []
+    image_dataset_y = []
+    one_hot_vector = [0] * num_images
+    one_hot_vector[k] = 1
+    for i in range(img_height):
+        for j in range(img_width):
+            coordinate_y = 2 * (i / (img_height - 1) - 0.5)
+            coordinate_x = 2 * (j / (img_width - 1) - 0.5)
             vector = [coordinate_y, coordinate_x] + one_hot_vector
-            x.append(vector)
-            y.append([image[i][j]])
+            image_dataset_x.append(vector)
+            image_dataset_y.append([image[i][j]])
+
+    x += image_dataset_x
+    y += image_dataset_y
+    image_dataset_x = np.array(image_dataset_x)
+    image_dataset_y = np.array(image_dataset_y)
+    image_datasets.append(
+        (
+            image_dataset_x,
+            image_dataset_y
+        )
+    )
+
 x = np.array(x)
 y = np.array(y)
 
 model = Sequential()
-model.add(Dense(120, input_dim=2 + num_images))
+model.add(Dense(150, input_dim=2 + num_images))
 model.add(Activation('relu'))
-model.add(Dense(120))
+model.add(Dense(150))
 model.add(Activation('relu'))
-model.add(Dense(120))
+model.add(Dense(150))
 model.add(Activation('relu'))
-model.add(Dense(120))
+model.add(Dense(150))
 model.add(Activation('relu'))
 model.add(Dense(1))
 model.add(Activation('relu'))
@@ -81,18 +105,14 @@ class CheckpointOutputs(Callback):
 
         if loss_change > self.loss_change_threshold:
             self.last_loss_checkpoint = logs['loss']
+            model_file_path = os.path.join(
+                'output',
+                'train_many_{0}_{1:04d}.h5'.format(image_filenames_hash, epoch)
+            )
+            model.save(model_file_path)
             for k, image_filename in enumerate(args.image_filenames):
 
-                that_x = []
-                for i in range(img_height):
-                    for j in range(img_width):
-                        coordinate_y = 2 * (i / (img_height - 1) - 0.5)
-                        coordinate_x = 2 * (j / (img_width - 1) - 0.5)
-                        one_hot_vector = [0] * num_images
-                        one_hot_vector[k] = 1
-                        vector = [coordinate_y, coordinate_x] + one_hot_vector
-                        that_x.append(vector)
-
+                that_x = image_datasets[k][0]
                 predicted_image = self.model.predict(that_x, verbose=False)
                 predicted_image = np.clip(predicted_image, 0, 1)
                 predicted_image = predicted_image.reshape(image.shape)
