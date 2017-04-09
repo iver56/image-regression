@@ -72,7 +72,7 @@ def smoothstep(minimum, maximum, value):
 
 
 image_counter = 0
-for k in range(args.num_images):
+for k in range(-1, args.num_images):
     for l in range(steps_per_image):
         x = []
         one_hot_vector = [0] * args.num_images
@@ -81,12 +81,13 @@ for k in range(args.num_images):
         progress = smoothstep(0, 1, progress)
 
         current_value = 1 - progress
-        current_value = 0.6 * math.sqrt(current_value) + 0.4 * current_value
-        next_value = 0.6 * math.sqrt(progress) + 0.4 * progress
+        current_value = 0.7 * math.sqrt(current_value) + 0.3 * current_value
+        next_value = 0.7 * math.sqrt(progress) + 0.3 * progress
 
-        current_index = args.index_map[k]
+        if k >= 0:
+            current_index = args.index_map[k]
+            one_hot_vector[current_index] = current_value
         next_index = args.index_map[(k + 1) % args.num_images]
-        one_hot_vector[current_index] = current_value
         one_hot_vector[next_index] = next_value
         for i in range(args.image_height):
             for j in range(args.image_width):
@@ -106,7 +107,7 @@ for k in range(args.num_images):
                 'output',
                 '{0:03d}_interpolated.jpg'.format(image_counter)
             )
-            if l == 0:
+            if l == 0 and k >= 0:
                 filename = args.image_filenames[args.index_map[k]]
                 original_image = imread(filename, as_grey=True, plugin='pil')
                 imsave(output_file_path, original_image)
