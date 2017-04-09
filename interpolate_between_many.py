@@ -31,6 +31,13 @@ arg_parser.add_argument(
     default=128
 )
 arg_parser.add_argument(
+    '--steps-per-image',
+    help='Number of interpolations between each image',
+    dest='steps_per_image',
+    type=int,
+    default=30
+)
+arg_parser.add_argument(
     '--model',
     help='Filename of model',
     dest='model_filename',
@@ -63,7 +70,6 @@ image_shape = (args.image_height, args.image_width)
 model = load_model(args.model_filename)
 
 image_datasets = []
-steps_per_image = 10
 
 
 def smoothstep(minimum, maximum, value):
@@ -73,10 +79,10 @@ def smoothstep(minimum, maximum, value):
 
 image_counter = 0
 for k in range(-1, args.num_images):
-    for l in range(steps_per_image):
+    for l in range(args.steps_per_image):
         x = []
         one_hot_vector = [0] * args.num_images
-        progress = l / steps_per_image
+        progress = l / args.steps_per_image
         progress = smoothstep(0, 1, progress)
         progress = smoothstep(0, 1, progress)
 
