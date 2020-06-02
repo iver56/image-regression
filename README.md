@@ -8,7 +8,7 @@ A toy application that learns a mapping from (x, y) coordinates to color.
 `python train.py -i keyboard.png --num-epochs 1000`
 
 ### Train on a single color image (RGBA)
-`python train.py -i landscape.png --num-epochs 1000`
+`python train_color.py -i landscape.png --num-epochs 1000`
 
 ### Train on multiple images
 `python train_many.py -i boxy_stripes2.png boxy_stripes2_30.png boxy_stripes2_60.png boxy_stripes2_90.png`
