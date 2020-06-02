@@ -20,6 +20,10 @@ Then interpolate between the images:
 
 `python interpolate_between_many.py --num-images 4 --model output/that_model_filename.h5`
 
+or, in the case of a color image:
+
+`python interpolate_between_many_color.py --num-images 4 --model output/that_model_filename.h5 --num-channels 4`
+
 ## Examples
 
 | Name | Original | Learned image |
