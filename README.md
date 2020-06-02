@@ -13,6 +13,9 @@ A toy application that learns a mapping from (x, y) coordinates to color.
 ### Train on multiple images
 `python train_many.py -i boxy_stripes2.png boxy_stripes2_30.png boxy_stripes2_60.png boxy_stripes2_90.png`
 
+### Train on multiple color images (RGBA)
+`python train_many_color.py -i boxy_stripes2.png boxy_stripes2_30.png boxy_stripes2_60.png boxy_stripes2_90.png`
+
 Then interpolate between the images:
 
 `python interpolate_between_many.py --num-images 4 --model output/that_model_filename.h5`
