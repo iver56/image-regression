@@ -8,14 +8,21 @@ A toy application that learns a mapping from (x, y) coordinates to color.
 `python train.py -i keyboard.png --num-epochs 1000`
 
 ### Train on a single color image (RGBA)
-`python train.py -i landscape.png --num-epochs 1000`
+`python train_color.py -i landscape.png --num-epochs 1000`
 
 ### Train on multiple images
 `python train_many.py -i boxy_stripes2.png boxy_stripes2_30.png boxy_stripes2_60.png boxy_stripes2_90.png`
 
+### Train on multiple color images (RGBA)
+`python train_many_color.py -i boxy_stripes2.png boxy_stripes2_30.png boxy_stripes2_60.png boxy_stripes2_90.png`
+
 Then interpolate between the images:
 
 `python interpolate_between_many.py --num-images 4 --model output/that_model_filename.h5`
+
+or, in the case of a color image:
+
+`python interpolate_between_many_color.py --num-images 4 --model output/that_model_filename.h5 --num-channels 4`
 
 ## Examples
 
