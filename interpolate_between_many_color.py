@@ -10,65 +10,63 @@ import numpy as np
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument(
-    '--num-images',
-    help='Number of images',
-    dest='num_images',
-    type=int,
-    default=16
+    "--num-images", help="Number of images", dest="num_images", type=int, default=16
 )
 arg_parser.add_argument(
-    '--width',
-    help='Image width',
-    dest='image_width',
-    type=int,
-    default=128
+    "--width", help="Image width", dest="image_width", type=int, default=128
 )
 arg_parser.add_argument(
-    '--height',
-    help='Image height',
-    dest='image_height',
-    type=int,
-    default=128
+    "--height", help="Image height", dest="image_height", type=int, default=128
 )
 arg_parser.add_argument(
-    '--steps-per-image',
-    help='Number of interpolations between each image',
-    dest='steps_per_image',
+    "--steps-per-image",
+    help="Number of interpolations between each image",
+    dest="steps_per_image",
     type=int,
-    default=30
+    default=30,
 )
 arg_parser.add_argument(
-    '--model',
-    help='Filename of model',
-    dest='model_filename',
+    "--model", help="Filename of model", dest="model_filename", type=str, required=True
+)
+arg_parser.add_argument(
+    "--ordering",
+    dest="index_map",
+    nargs="+",
+    type=int,
+    help="Indexes of the order the images should appear in",
+    default=[8, 12, 11, 7, 3, 4, 13, 2, 5, 14, 0, 1, 15, 6, 9, 10],
+)
+arg_parser.add_argument(
+    "--images",
+    dest="image_filenames",
+    nargs="+",
     type=str,
-    required=True
+    help="Image filenames if you want to include originals in the series",
+    default=[
+        "darklite.png",
+        "desire.png ",
+        "farbrausch.png ",
+        "gargaj.png ",
+        "idle.png ",
+        "kvasigen.png ",
+        "lft.png ",
+        "logicoma.png ",
+        "mercury.png ",
+        "mrdoob.png ",
+        "outracks.png ",
+        "pandacube.png ",
+        "revision.png ",
+        "rohtie.png ",
+        "sandsmark.png ",
+        "t-101.png",
+    ],
 )
 arg_parser.add_argument(
-    '--ordering',
-    dest='index_map',
-    nargs='+',
+    "--num-channels",
+    help="Number of channels in the output images",
+    dest="num_channels",
     type=int,
-    help='Indexes of the order the images should appear in',
-    default=[8, 12, 11, 7, 3, 4, 13, 2, 5, 14, 0, 1, 15, 6, 9, 10]
-)
-arg_parser.add_argument(
-    '--images',
-    dest='image_filenames',
-    nargs='+',
-    type=str,
-    help='Image filenames if you want to include originals in the series',
-    default=['darklite.png', 'desire.png ', 'farbrausch.png ', 'gargaj.png ', 'idle.png ',
-             'kvasigen.png ', 'lft.png ', 'logicoma.png ', 'mercury.png ', 'mrdoob.png ',
-             'outracks.png ', 'pandacube.png ', 'revision.png ', 'rohtie.png ', 'sandsmark.png ',
-             't-101.png']
-)
-arg_parser.add_argument(
-    '--num-channels',
-    help='Number of channels in the output images',
-    dest='num_channels',
-    type=int,
-    default=4
+    default=4,
 )
 args = arg_parser.parse_args()
 
@@ -117,12 +115,11 @@ for k in range(-1, args.num_images):
 
         with warnings.catch_warnings():
             output_file_path = os.path.join(
-                'output',
-                '{0:03d}_interpolated.png'.format(image_counter)
+                "output", "{0:03d}_interpolated.png".format(image_counter)
             )
             if l == 0 and k >= 0:
                 filename = args.image_filenames[args.index_map[k]]
-                original_image = imread(filename, as_grey=False, plugin='pil')
+                original_image = imread(filename, as_grey=False, plugin="pil")
                 imsave(output_file_path, original_image)
             else:
                 imsave(output_file_path, predicted_image)

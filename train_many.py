@@ -13,26 +13,22 @@ import numpy as np
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument(
-    '-i',
-    dest='image_filenames',
-    nargs='+',
+    "-i",
+    dest="image_filenames",
+    nargs="+",
     type=str,
-    help='File names of input images',
-    default=['keyboard.png']
+    help="File names of input images",
+    default=["keyboard.png"],
 )
 arg_parser.add_argument(
-    '--num-epochs',
-    help='Number of epochs',
-    dest='num_epochs',
-    type=int,
-    default=750
+    "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
 )
 args = arg_parser.parse_args()
 
 images = []
 for image_filename in args.image_filenames:
-    image = imread(image_filename, as_grey=True, plugin='pil')
-    if str(image.dtype) == 'uint8':
+    image = imread(image_filename, as_grey=True, plugin="pil")
+    if str(image.dtype) == "uint8":
         image = np.divide(image, 255.0)
     images.append(image)
 
@@ -41,7 +37,9 @@ img_height, img_width = images[0].shape
 for image in images:
     assert image.shape == images[0].shape
 
-image_filenames_hash = hashlib.md5(json.dumps(args.image_filenames).encode('utf-8')).hexdigest()[:8]
+image_filenames_hash = hashlib.md5(
+    json.dumps(args.image_filenames).encode("utf-8")
+).hexdigest()[:8]
 num_images = len(images)
 
 x = []
@@ -64,32 +62,24 @@ for k, image in enumerate(images):
     y += image_dataset_y
     image_dataset_x = np.array(image_dataset_x)
     image_dataset_y = np.array(image_dataset_y)
-    image_datasets.append(
-        (
-            image_dataset_x,
-            image_dataset_y
-        )
-    )
+    image_datasets.append((image_dataset_x, image_dataset_y))
 
 x = np.array(x)
 y = np.array(y)
 
 model = Sequential()
 model.add(Dense(150, input_dim=2 + num_images))
-model.add(Activation('relu'))
+model.add(Activation("relu"))
 model.add(Dense(150))
-model.add(Activation('relu'))
+model.add(Activation("relu"))
 model.add(Dense(150))
-model.add(Activation('relu'))
+model.add(Activation("relu"))
 model.add(Dense(150))
-model.add(Activation('relu'))
+model.add(Activation("relu"))
 model.add(Dense(1))
-model.add(Activation('relu'))
+model.add(Activation("relu"))
 
-model.compile(
-    loss='mean_squared_error',
-    optimizer='rmsprop'
-)
+model.compile(loss="mean_squared_error", optimizer="rmsprop")
 
 
 class CheckpointOutputs(Callback):
@@ -101,13 +91,13 @@ class CheckpointOutputs(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if logs is None:
             return
-        loss_change = 1.0 - logs['loss'] / self.last_loss_checkpoint
+        loss_change = 1.0 - logs["loss"] / self.last_loss_checkpoint
 
         if loss_change > self.loss_change_threshold:
-            self.last_loss_checkpoint = logs['loss']
+            self.last_loss_checkpoint = logs["loss"]
             model_file_path = os.path.join(
-                'output',
-                'train_many_{0}_{1:04d}.h5'.format(image_filenames_hash, epoch)
+                "output",
+                "train_many_{0}_{1:04d}.h5".format(image_filenames_hash, epoch),
             )
             model.save(model_file_path)
             for k, image_filename in enumerate(args.image_filenames):
@@ -119,8 +109,8 @@ class CheckpointOutputs(Callback):
 
                 with warnings.catch_warnings():
                     output_file_path = os.path.join(
-                        'output',
-                        '{0}_predicted_{1:04d}.png'.format(image_filename, epoch)
+                        "output",
+                        "{0}_predicted_{1:04d}.png".format(image_filename, epoch),
                     )
                     imsave(output_file_path, predicted_image)
 
@@ -132,5 +122,5 @@ history = model.fit(
     batch_size=128,
     epochs=args.num_epochs,
     shuffle=True,
-    callbacks=[checkpoint_outputs]
+    callbacks=[checkpoint_outputs],
 )

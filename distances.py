@@ -12,19 +12,19 @@ Naively calculate a short path through the images
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument(
-    '-i',
-    dest='image_filenames',
-    nargs='+',
+    "-i",
+    dest="image_filenames",
+    nargs="+",
     type=str,
-    help='File names of input images',
-    required=True
+    help="File names of input images",
+    required=True,
 )
 args = arg_parser.parse_args()
 
 images = []
 for image_filename in args.image_filenames:
-    image = imread(image_filename, as_grey=True, plugin='pil')
-    if str(image.dtype) == 'uint8':
+    image = imread(image_filename, as_grey=True, plugin="pil")
+    if str(image.dtype) == "uint8":
         image = np.divide(image, 255.0)
     images.append(image)
 
