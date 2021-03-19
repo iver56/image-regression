@@ -2,12 +2,13 @@ from __future__ import division
 
 import argparse
 import os
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import warnings
-from skimage.io import imread, imsave
+from PIL import Image
+from skimage.io import imread
 from torch import nn
 from torch.nn.functional import mse_loss
 from torch.utils.data import TensorDataset, DataLoader
@@ -41,6 +42,8 @@ y = np.array(y)
 tensor_x = torch.from_numpy(x.astype(np.float32))
 tensor_y = torch.from_numpy(y.astype(np.float32))
 
+os.makedirs("output", exist_ok=True)
+
 
 class SimpleNeuralNetwork(pl.LightningModule):
     def __init__(self):
@@ -48,20 +51,16 @@ class SimpleNeuralNetwork(pl.LightningModule):
         num_hidden_nodes = 128
         self.net = nn.Sequential(
             nn.Linear(2, num_hidden_nodes),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(num_hidden_nodes, 1),
-            nn.ReLU(),
+            nn.LeakyReLU(),
         )
-
-        self.last_loss_checkpoint = float("inf")
-        self.loss_change_threshold = 0.05
-        self.epoch = 0
 
     def forward(self, inputs):
         return self.net(inputs)
@@ -69,6 +68,7 @@ class SimpleNeuralNetwork(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self(x)
+
         loss = mse_loss(y_pred, y)
         return loss
 
@@ -76,7 +76,20 @@ class SimpleNeuralNetwork(pl.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
 
-    def on_train_epoch_end(self, outputs, **kwargs):
+    def on_train_epoch_end(self, outputs: Any) -> None:
+        # We must implement this, or else SaveCheckpointImages.on_train_epoch_end
+        # won't get any outputs
+        pass
+
+
+class SaveCheckpointImages(pl.Callback):
+    def __init__(self):
+        self.last_loss_checkpoint = float("inf")
+        self.loss_change_threshold = 0.05
+
+    def on_train_epoch_end(
+        self, trainer, pl_module: pl.LightningModule, outputs: Any
+    ) -> None:
         step_losses = [step[0]["minimize"].item() for step in outputs[0]]
         avg_loss = np.mean(step_losses)
         loss_change = 1 - avg_loss / self.last_loss_checkpoint
@@ -85,24 +98,27 @@ class SimpleNeuralNetwork(pl.LightningModule):
             self.last_loss_checkpoint = avg_loss
 
             with torch.no_grad():
-                predicted_image = self.forward(tensor_x).numpy()
+                predicted_image = pl_module.forward(tensor_x).numpy()
 
-            predicted_image = np.clip(predicted_image, 0, 1)
             predicted_image = predicted_image.reshape(image.shape)
 
-            with warnings.catch_warnings():
-                output_file_path = os.path.join(
-                    "output",
-                    "{0}_predicted_{1:04d}.png".format(args.input_filename, self.epoch),
-                )
-                imsave(output_file_path, predicted_image)
-
-        self.epoch += 1
+            output_file_path = os.path.join(
+                "output",
+                "{0}_predicted_{1:04d}.png".format(
+                    args.input_filename, trainer.current_epoch
+                ),
+            )
+            Image.fromarray(
+                np.clip(predicted_image * 256, 0, 255).astype(np.uint8)
+            ).save(output_file_path)
 
 
 nn = SimpleNeuralNetwork()
 trainer = pl.Trainer(
-    max_epochs=args.num_epochs, checkpoint_callback=False, logger=False
+    max_epochs=args.num_epochs,
+    checkpoint_callback=False,
+    logger=False,
+    callbacks=[SaveCheckpointImages()],
 )
 
 tensor_dataset = TensorDataset(tensor_x, tensor_y)
