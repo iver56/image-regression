@@ -28,26 +28,35 @@ args = arg_parser.parse_args()
 
 image = imread(args.input_filename, as_grey=True, plugin="pil")
 if str(image.dtype) == "uint8":
-    image = np.divide(image, 255.0)
+    image = np.divide(image, 255.0, dtype=np.float32)
 img_height, img_width = image.shape
+
+image_tensor = torch.from_numpy(image)
+image_shifted_right = torch.clone(image_tensor)
+image_shifted_right[:, 1:] = image_tensor[:, :-1]
+image_shifted_down = torch.clone(image_tensor)
+image_shifted_down[1:, :] = image_tensor[:-1, :]
 
 x = []
 y = []
 for i in range(img_height):
     for j in range(img_width):
-        x.append([i / img_height, j / img_width])
+        x.append([i, j])
         y.append([image[i][j]])
-x = np.array(x)
-y = np.array(y)
-tensor_x = torch.from_numpy(x.astype(np.float32))
-tensor_y = torch.from_numpy(y.astype(np.float32))
+x = np.array(x, dtype=np.float32)
+y = np.array(y, dtype=np.float32)
+tensor_x = torch.from_numpy(x)
+tensor_y = torch.from_numpy(y)
+
 
 os.makedirs("output", exist_ok=True)
 
 
 class SimpleNeuralNetwork(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, height, width):
         super().__init__()
+        self.height = height
+        self.width = width
         num_hidden_nodes = 128
         self.net = nn.Sequential(
             nn.Linear(2, num_hidden_nodes),
@@ -63,14 +72,37 @@ class SimpleNeuralNetwork(pl.LightningModule):
         )
 
     def forward(self, inputs):
+        inputs = torch.clone(inputs)
+        inputs[:, 0] /= self.height
+        inputs[:, 1] /= self.width
         return self.net(inputs)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_pred = self(x)
+        y_coordinates = x[:, 0].long()
+        x_coordinates = x[:, 1].long()
+        x_coords_shifted_left = torch.clamp(x_coordinates - 1, min=0)
+        y_coords_shifter_up = torch.clamp(y_coordinates - 1, min=0)
 
-        loss = mse_loss(y_pred, y)
-        return loss
+        x_left = torch.column_stack((y_coordinates, x_coords_shifted_left)).float()
+        x_up = torch.column_stack((y_coords_shifter_up, x_coordinates)).float()
+        y_pred = self(x)
+        y_pred_left = self(x_left)
+        y_pred_up = self(x_up)
+        dx_pred = y_pred - y_pred_left
+        dy_pred = y_pred - y_pred_up
+
+        pixels = image_tensor[y_coordinates, x_coordinates]
+        pixels_left_gt = image_shifted_right[y_coordinates, x_coordinates]
+        pixels_top_gt = image_shifted_down[y_coordinates, x_coordinates]
+        # TODO: gt_dx and gt_dy can be cached
+        dx_gt = pixels - pixels_left_gt
+        dy_gt = pixels - pixels_top_gt
+
+        pixelwise_loss = mse_loss(y_pred, y)
+        dx_loss = mse_loss(dx_pred.flatten(), dx_gt)
+        dy_loss = mse_loss(dy_pred.flatten(), dy_gt)
+        return 0.001 * pixelwise_loss + 0.5 * dx_loss + 0.5 * dy_loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
@@ -113,7 +145,7 @@ class SaveCheckpointImages(pl.Callback):
             ).save(output_file_path)
 
 
-nn = SimpleNeuralNetwork()
+nn = SimpleNeuralNetwork(img_height, img_width)
 trainer = pl.Trainer(
     max_epochs=args.num_epochs,
     checkpoint_callback=False,

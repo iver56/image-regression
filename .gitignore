@@ -94,3 +94,6 @@ ENV/
 
 # Misc
 .idea
+
+# Data
+output/*
