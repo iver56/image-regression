@@ -27,12 +27,15 @@ args = arg_parser.parse_args()
 
 images = []
 for image_filename in args.image_filenames:
-    image = imread(image_filename, as_grey=True, plugin="pil")
+    image = imread(image_filename, as_grey=False, plugin="pil")
     if str(image.dtype) == "uint8":
         image = np.divide(image, 255.0)
     images.append(image)
 
-img_height, img_width = images[0].shape
+img_height = images[0].shape[0]
+img_width = images[0].shape[1]
+num_channels = images[0].shape[2]
+
 # check that all images have the same dimensions
 for image in images:
     assert image.shape == images[0].shape
@@ -56,7 +59,7 @@ for k, image in enumerate(images):
             coordinate_x = 2 * (j / (img_width - 1) - 0.5)
             vector = [coordinate_y, coordinate_x] + one_hot_vector
             image_dataset_x.append(vector)
-            image_dataset_y.append([image[i][j]])
+            image_dataset_y.extend([image[i][j]])
 
     x += image_dataset_x
     y += image_dataset_y
@@ -76,7 +79,7 @@ model.add(Dense(150))
 model.add(Activation("relu"))
 model.add(Dense(150))
 model.add(Activation("relu"))
-model.add(Dense(1))
+model.add(Dense(num_channels))
 model.add(Activation("relu"))
 
 model.compile(loss="mean_squared_error", optimizer="rmsprop")
@@ -96,7 +99,7 @@ class CheckpointOutputs(Callback):
         if loss_change > self.loss_change_threshold:
             self.last_loss_checkpoint = logs["loss"]
             model_file_path = os.path.join(
-                "output",
+                "../output",
                 "train_many_{0}_{1:04d}.h5".format(image_filenames_hash, epoch),
             )
             model.save(model_file_path)
@@ -109,7 +112,7 @@ class CheckpointOutputs(Callback):
 
                 with warnings.catch_warnings():
                     output_file_path = os.path.join(
-                        "output",
+                        "../output",
                         "{0}_predicted_{1:04d}.png".format(image_filename, epoch),
                     )
                     imsave(output_file_path, predicted_image)

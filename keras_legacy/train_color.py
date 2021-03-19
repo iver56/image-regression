@@ -74,7 +74,7 @@ class CheckpointOutputs(Callback):
 
             with warnings.catch_warnings():
                 output_file_path = os.path.join(
-                    "output",
+                    "../output",
                     "{0}_predicted_{1:04d}.png".format(args.input_filename, epoch),
                 )
                 imsave(output_file_path, predicted_image)
