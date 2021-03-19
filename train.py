@@ -10,7 +10,7 @@ import torch
 from PIL import Image
 from skimage.io import imread
 from torch import nn
-from torch.nn.functional import mse_loss
+from torch.nn.functional import mse_loss, smooth_l1_loss
 from torch.utils.data import TensorDataset, DataLoader
 
 arg_parser = argparse.ArgumentParser()
@@ -56,7 +56,9 @@ class SimpleNeuralNetwork(pl.LightningModule):
     def __init__(self, height, width):
         super().__init__()
         self.height = height
+        self.half_height = self.height / 2
         self.width = width
+        self.half_width = self.width / 2
         num_hidden_nodes = 128
         self.net = nn.Sequential(
             nn.Linear(2, num_hidden_nodes),
@@ -73,8 +75,9 @@ class SimpleNeuralNetwork(pl.LightningModule):
 
     def forward(self, inputs):
         inputs = torch.clone(inputs)
-        inputs[:, 0] /= self.height
-        inputs[:, 1] /= self.width
+        inputs[:, 0] = inputs[:, 0] / self.half_height
+        inputs[:, 1] = inputs[:, 1] / self.half_width
+        inputs = 1 - inputs
         return self.net(inputs)
 
     def training_step(self, batch, batch_idx):
@@ -102,7 +105,7 @@ class SimpleNeuralNetwork(pl.LightningModule):
         pixelwise_loss = mse_loss(y_pred, y)
         dx_loss = mse_loss(dx_pred.flatten(), dx_gt)
         dy_loss = mse_loss(dy_pred.flatten(), dy_gt)
-        return 0.001 * pixelwise_loss + 0.5 * dx_loss + 0.5 * dy_loss
+        return 0.5 * pixelwise_loss + 0.25 * dx_loss + 0.25 * dy_loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
