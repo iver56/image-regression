@@ -8,6 +8,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from PIL import Image
+from siren_pytorch import Siren
 from skimage.io import imread
 from torch import nn
 from torch.nn.functional import mse_loss, smooth_l1_loss
@@ -61,14 +62,11 @@ class SimpleNeuralNetwork(pl.LightningModule):
         self.half_width = self.width / 2
         num_hidden_nodes = 128
         self.net = nn.Sequential(
-            nn.Linear(2, num_hidden_nodes),
-            nn.LeakyReLU(),
-            nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.LeakyReLU(),
-            nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.LeakyReLU(),
-            nn.Linear(num_hidden_nodes, num_hidden_nodes),
-            nn.LeakyReLU(),
+            Siren(dim_in=2, dim_out=num_hidden_nodes),
+            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
+            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
+            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
+            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
             nn.Linear(num_hidden_nodes, 1),
             nn.LeakyReLU(),
         )
