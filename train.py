@@ -11,7 +11,7 @@ from PIL import Image
 from siren_pytorch import Siren
 from skimage.io import imread
 from torch import nn
-from torch.nn.functional import mse_loss, smooth_l1_loss
+from torch.nn.functional import mse_loss
 from torch.utils.data import TensorDataset, DataLoader
 
 arg_parser = argparse.ArgumentParser()
@@ -107,7 +107,8 @@ class SimpleNeuralNetwork(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.5)
+        return [optimizer], [scheduler]
 
     def on_train_epoch_end(self, outputs: Any) -> None:
         # We must implement this, or else SaveCheckpointImages.on_train_epoch_end
