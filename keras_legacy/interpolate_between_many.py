@@ -108,7 +108,7 @@ for k in range(-1, args.num_images):
 
         with warnings.catch_warnings():
             output_file_path = os.path.join(
-                "output", "{0:03d}_interpolated.jpg".format(image_counter)
+                "../output", "{0:03d}_interpolated.jpg".format(image_counter)
             )
             if l == 0 and k >= 0:
                 filename = args.image_filenames[args.index_map[k]]
