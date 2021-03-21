@@ -11,7 +11,6 @@ import pytorch_lightning as pl
 import torch
 from PIL import Image
 from siren_pytorch import Siren
-from skimage.io import imread
 from torch import nn
 from torch.nn.functional import mse_loss
 from torch.utils.data import TensorDataset, DataLoader
@@ -26,17 +25,25 @@ arg_parser.add_argument(
     default=["keyboard.png"],
 )
 arg_parser.add_argument(
+    "--edge-loss-factor",
+    dest="edge_loss_factor",
+    type=float,
+    help="How much should edges (differences between 4-connected neighbour pixels) be weighted",
+    default=0.0,
+)
+arg_parser.add_argument(
     "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
 )
 args = arg_parser.parse_args()
+
+half_edge_loss_factor = args.edge_loss_factor / 2
 
 images = []
 dx_images = []
 dy_images = []
 for image_filename in args.image_filenames:
-    image = imread(image_filename, as_grey=True, plugin="pil")
-    if str(image.dtype) == "uint8":
-        image = np.divide(image, 255.0)
+    image = np.array(Image.open(image_filename).convert("L"))
+    image = np.divide(image, 255.0, dtype=np.float32)
     images.append(image)
 
     image_shifted_right = np.copy(image)
@@ -121,35 +128,45 @@ class SimpleNeuralNetwork(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_coordinates = x[:, 0].long()
-        x_coordinates = x[:, 1].long()
-        x_coords_shifted_left = torch.clamp(x_coordinates - 1, min=0)
-        y_coords_shifter_up = torch.clamp(y_coordinates - 1, min=0)
-
-        image_indexes = torch.argmax(x[:, 2:], dim=1)
-
-        x_left_coords = torch.column_stack(
-            (y_coordinates, x_coords_shifted_left)
-        ).float()
-        x_left = torch.clone(x)
-        x_left[:, 0:2] = x_left_coords
-        x_up_coords = torch.column_stack((y_coords_shifter_up, x_coordinates)).float()
-        x_up = torch.clone(x)
-        x_up[:, 0:2] = x_up_coords
-
         y_pred = self(x)
-        y_pred_left = self(x_left)
-        y_pred_up = self(x_up)
-        dx_pred = y_pred - y_pred_left
-        dy_pred = y_pred - y_pred_up
-
-        dx_gt = dx_images[image_indexes, y_coordinates, x_coordinates]
-        dy_gt = dy_images[image_indexes, y_coordinates, x_coordinates]
-
         pixelwise_loss = mse_loss(y_pred, y)
-        dx_loss = mse_loss(dx_pred.flatten(), dx_gt)
-        dy_loss = mse_loss(dy_pred.flatten(), dy_gt)
-        return 0.5 * pixelwise_loss + 0.25 * dx_loss + 0.25 * dy_loss
+
+        if half_edge_loss_factor > 0.0:
+            y_coordinates = x[:, 0].long()
+            x_coordinates = x[:, 1].long()
+            x_coords_shifted_left = torch.clamp(x_coordinates - 1, min=0)
+            y_coords_shifted_up = torch.clamp(y_coordinates - 1, min=0)
+
+            image_indexes = torch.argmax(x[:, 2:], dim=1)
+
+            x_left_coords = torch.column_stack(
+                (y_coordinates, x_coords_shifted_left)
+            ).float()
+            x_left = torch.clone(x)
+            x_left[:, 0:2] = x_left_coords
+            x_up_coords = torch.column_stack(
+                (y_coords_shifted_up, x_coordinates)
+            ).float()
+            x_up = torch.clone(x)
+            x_up[:, 0:2] = x_up_coords
+
+            y_pred_left = self(x_left)
+            y_pred_up = self(x_up)
+            dx_pred = y_pred - y_pred_left
+            dy_pred = y_pred - y_pred_up
+
+            dx_gt = dx_images[image_indexes, y_coordinates, x_coordinates]
+            dy_gt = dy_images[image_indexes, y_coordinates, x_coordinates]
+            dx_loss = mse_loss(dx_pred.flatten(), dx_gt)
+            dy_loss = mse_loss(dy_pred.flatten(), dy_gt)
+
+            return (
+                0.5 * pixelwise_loss
+                + half_edge_loss_factor * dx_loss
+                + half_edge_loss_factor * dy_loss
+            )
+        else:
+            return pixelwise_loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
