@@ -34,7 +34,16 @@ arg_parser.add_argument(
 arg_parser.add_argument(
     "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
 )
+arg_parser.add_argument(
+    "--use-cuda", dest="use_cuda", default=1, type=int, help="Use CUDA (GPU) or not?"
+)
 args = arg_parser.parse_args()
+
+use_cuda = args.use_cuda
+if use_cuda and not torch.cuda.is_available():
+    print("Warning: Trying to use CUDA, but it is not available")
+    use_cuda = False
+device = torch.device("cuda" if use_cuda else "cpu")
 
 half_edge_loss_factor = args.edge_loss_factor / 2
 
@@ -63,8 +72,8 @@ img_height, img_width = images[0].shape
 for image in images:
     assert image.shape == images[0].shape
 
-dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32))
-dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32))
+dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32)).to(device)
+dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32)).to(device)
 
 image_filenames_hash = hashlib.md5(
     json.dumps(args.image_filenames).encode("utf-8")
@@ -94,8 +103,8 @@ for k, image in enumerate(images):
     image_dataset_y = np.array(image_dataset_y)
     image_datasets.append((image_dataset_x, image_dataset_y))
 
-tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
-tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
+tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
+tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
 
 
 os.makedirs("output", exist_ok=True)
@@ -196,7 +205,7 @@ class SaveCheckpointImages(pl.Callback):
             self.last_loss_checkpoint = avg_loss
 
             with torch.no_grad():
-                predicted_images = pl_module.forward(tensor_x).numpy()
+                predicted_images = pl_module.forward(tensor_x).cpu().numpy()
 
             predicted_images = predicted_images.reshape(
                 (num_images, image.shape[0], image.shape[1])
@@ -219,6 +228,7 @@ trainer = pl.Trainer(
     checkpoint_callback=False,
     logger=False,
     callbacks=[SaveCheckpointImages()],
+    gpus=1 if use_cuda else 0,
 )
 
 tensor_dataset = TensorDataset(tensor_x, tensor_y)
