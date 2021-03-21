@@ -145,7 +145,7 @@ class SimpleNeuralNetwork(pl.LightningModule):
         inputs = torch.clone(inputs)
         inputs[:, 0] = inputs[:, 0] / self.half_height
         inputs[:, 1] = inputs[:, 1] / self.half_width
-        inputs[:, 0:2] = 1 - inputs[:, 0:2]
+        inputs[:, 0:2] = 3.14 * (1 - inputs[:, 0:2])
         return differential_clamp(self.net(inputs), min_val=0.0, max_val=1.0)
 
     def training_step(self, batch, batch_idx):
