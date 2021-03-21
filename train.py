@@ -1,6 +1,8 @@
 from __future__ import division
 
 import argparse
+import hashlib
+import json
 import os
 from typing import Any
 
@@ -17,37 +19,76 @@ from torch.utils.data import TensorDataset, DataLoader
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument(
     "-i",
-    help="File name of input image",
-    dest="input_filename",
+    dest="image_filenames",
+    nargs="+",
     type=str,
-    default="keyboard.png",
+    help="File name(s) of input image(s)",
+    default=["keyboard.png"],
 )
 arg_parser.add_argument(
-    "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=1000
+    "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
 )
 args = arg_parser.parse_args()
 
-image = imread(args.input_filename, as_grey=True, plugin="pil")
-if str(image.dtype) == "uint8":
-    image = np.divide(image, 255.0, dtype=np.float32)
-img_height, img_width = image.shape
+images = []
+dx_images = []
+dy_images = []
+for image_filename in args.image_filenames:
+    image = imread(image_filename, as_grey=True, plugin="pil")
+    if str(image.dtype) == "uint8":
+        image = np.divide(image, 255.0)
+    images.append(image)
 
-image_tensor = torch.from_numpy(image)
-image_shifted_right = torch.clone(image_tensor)
-image_shifted_right[:, 1:] = image_tensor[:, :-1]
-image_shifted_down = torch.clone(image_tensor)
-image_shifted_down[1:, :] = image_tensor[:-1, :]
+    image_shifted_right = np.copy(image)
+    image_shifted_right[:, 1:] = image[:, :-1]
+    image_shifted_down = np.copy(image)
+    image_shifted_down[1:, :] = image[:-1, :]
 
+    dx_gt = image - image_shifted_right
+    dx_images.append(dx_gt)
+    dy_gt = image - image_shifted_down
+    dy_images.append(dy_gt)
+
+    del dx_gt, dy_gt
+
+img_height, img_width = images[0].shape
+# check that all images have the same dimensions
+for image in images:
+    assert image.shape == images[0].shape
+
+dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32))
+dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32))
+
+image_filenames_hash = hashlib.md5(
+    json.dumps(args.image_filenames).encode("utf-8")
+).hexdigest()[:8]
+num_images = len(images)
+one_hot_vector_size = num_images if num_images > 1 else 0
+
+# Prepare dataset
 x = []
 y = []
-for i in range(img_height):
-    for j in range(img_width):
-        x.append([i, j])
-        y.append([image[i][j]])
-x = np.array(x, dtype=np.float32)
-y = np.array(y, dtype=np.float32)
-tensor_x = torch.from_numpy(x)
-tensor_y = torch.from_numpy(y)
+image_datasets = []
+for k, image in enumerate(images):
+    image_dataset_x = []
+    image_dataset_y = []
+    one_hot_vector = [0.0] * one_hot_vector_size
+    if one_hot_vector_size >= 1:
+        one_hot_vector[k] = 1.0
+    for i in range(img_height):
+        for j in range(img_width):
+            vector = [i, j] + one_hot_vector
+            image_dataset_x.append(vector)
+            image_dataset_y.append([image[i][j]])
+
+    x += image_dataset_x
+    y += image_dataset_y
+    image_dataset_x = np.array(image_dataset_x)
+    image_dataset_y = np.array(image_dataset_y)
+    image_datasets.append((image_dataset_x, image_dataset_y))
+
+tensor_x = torch.from_numpy(np.array(x, dtype=np.float32))
+tensor_y = torch.from_numpy(np.array(y, dtype=np.float32))
 
 
 os.makedirs("output", exist_ok=True)
@@ -62,7 +103,7 @@ class SimpleNeuralNetwork(pl.LightningModule):
         self.half_width = self.width / 2
         num_hidden_nodes = 128
         self.net = nn.Sequential(
-            Siren(dim_in=2, dim_out=num_hidden_nodes),
+            Siren(dim_in=2 + one_hot_vector_size, dim_out=num_hidden_nodes),
             Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
             Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
             Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
@@ -75,7 +116,7 @@ class SimpleNeuralNetwork(pl.LightningModule):
         inputs = torch.clone(inputs)
         inputs[:, 0] = inputs[:, 0] / self.half_height
         inputs[:, 1] = inputs[:, 1] / self.half_width
-        inputs = 1 - inputs
+        inputs[:, 0:2] = 1 - inputs[:, 0:2]
         return self.net(inputs)
 
     def training_step(self, batch, batch_idx):
@@ -85,20 +126,25 @@ class SimpleNeuralNetwork(pl.LightningModule):
         x_coords_shifted_left = torch.clamp(x_coordinates - 1, min=0)
         y_coords_shifter_up = torch.clamp(y_coordinates - 1, min=0)
 
-        x_left = torch.column_stack((y_coordinates, x_coords_shifted_left)).float()
-        x_up = torch.column_stack((y_coords_shifter_up, x_coordinates)).float()
+        image_indexes = torch.argmax(x[:, 2:], dim=1)
+
+        x_left_coords = torch.column_stack(
+            (y_coordinates, x_coords_shifted_left)
+        ).float()
+        x_left = torch.clone(x)
+        x_left[:, 0:2] = x_left_coords
+        x_up_coords = torch.column_stack((y_coords_shifter_up, x_coordinates)).float()
+        x_up = torch.clone(x)
+        x_up[:, 0:2] = x_up_coords
+
         y_pred = self(x)
         y_pred_left = self(x_left)
         y_pred_up = self(x_up)
         dx_pred = y_pred - y_pred_left
         dy_pred = y_pred - y_pred_up
 
-        pixels = image_tensor[y_coordinates, x_coordinates]
-        pixels_left_gt = image_shifted_right[y_coordinates, x_coordinates]
-        pixels_top_gt = image_shifted_down[y_coordinates, x_coordinates]
-        # TODO: gt_dx and gt_dy can be cached
-        dx_gt = pixels - pixels_left_gt
-        dy_gt = pixels - pixels_top_gt
+        dx_gt = dx_images[image_indexes, y_coordinates, x_coordinates]
+        dy_gt = dy_images[image_indexes, y_coordinates, x_coordinates]
 
         pixelwise_loss = mse_loss(y_pred, y)
         dx_loss = mse_loss(dx_pred.flatten(), dx_gt)
@@ -126,25 +172,28 @@ class SaveCheckpointImages(pl.Callback):
     ) -> None:
         step_losses = [step[0]["minimize"].item() for step in outputs[0]]
         avg_loss = np.mean(step_losses)
+        print("Loss: {:.6f}".format(avg_loss))
         loss_change = 1 - avg_loss / self.last_loss_checkpoint
 
         if loss_change > self.loss_change_threshold:
             self.last_loss_checkpoint = avg_loss
 
             with torch.no_grad():
-                predicted_image = pl_module.forward(tensor_x).numpy()
+                predicted_images = pl_module.forward(tensor_x).numpy()
 
-            predicted_image = predicted_image.reshape(image.shape)
-
-            output_file_path = os.path.join(
-                "output",
-                "{0}_predicted_{1:04d}.png".format(
-                    args.input_filename, trainer.current_epoch
-                ),
+            predicted_images = predicted_images.reshape(
+                (num_images, image.shape[0], image.shape[1])
             )
-            Image.fromarray(
-                np.clip(predicted_image * 256, 0, 255).astype(np.uint8)
-            ).save(output_file_path)
+            for img_idx in range(num_images):
+                output_file_path = os.path.join(
+                    "output",
+                    "{0}_predicted_{1:04d}.png".format(
+                        args.image_filenames[img_idx], trainer.current_epoch
+                    ),
+                )
+                Image.fromarray(
+                    np.clip(predicted_images[img_idx] * 256, 0, 255).astype(np.uint8)
+                ).save(output_file_path)
 
 
 nn = SimpleNeuralNetwork(img_height, img_width)
@@ -162,7 +211,9 @@ train_loader = DataLoader(tensor_dataset, batch_size=128, shuffle=True)
 trainer.fit(nn, train_loader)
 
 # Predict
+"""
 with torch.no_grad():
     predicted_image = nn(tensor_x).numpy().reshape(image.shape)
     print("\nPredicted image:")
     print(predicted_image)
+"""
