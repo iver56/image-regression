@@ -39,14 +39,14 @@ arg_parser.add_argument(
     dest="batch_size",
     help="How many samples should be in each training batch?",
     type=int,
-    default=128,
+    default=256,
 )
 arg_parser.add_argument(
     "--hidden-nodes",
     dest="hidden_nodes",
     help="How many nodes should be in each hidden layer?",
     type=int,
-    default=128,
+    default=150,
 )
 arg_parser.add_argument(
     "--use-cuda", dest="use_cuda", default=1, type=int, help="Use CUDA (GPU) or not?"
@@ -119,7 +119,6 @@ for k, image in enumerate(images):
 
 tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
 tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
-
 
 os.makedirs("output", exist_ok=True)
 
@@ -217,11 +216,21 @@ class SaveCheckpointImages(pl.Callback):
         if loss_change > self.loss_change_threshold:
             self.last_loss_checkpoint = avg_loss
 
+            predicted_pixels = np.zeros(
+                shape=tensor_y.shape,
+                dtype=np.float32,
+            )
             with torch.no_grad():
-                predicted_images = pl_module.forward(tensor_x).cpu().numpy()
+                for offset in range(0, tensor_x.shape[0], args.batch_size):
+                    pred = (
+                        pl_module.forward(tensor_x[offset : offset + args.batch_size])
+                        .cpu()
+                        .numpy()
+                    )
+                    predicted_pixels[offset : offset + pred.shape[0]] = pred
 
-            predicted_images = predicted_images.reshape(
-                (num_images, image.shape[0], image.shape[1])
+            predicted_images = predicted_pixels.reshape(
+                (num_images, img_height, img_width)
             )
             for img_idx in range(num_images):
                 output_file_path = os.path.join(
