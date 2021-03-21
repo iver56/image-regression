@@ -35,6 +35,20 @@ arg_parser.add_argument(
     "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
 )
 arg_parser.add_argument(
+    "--batch-size",
+    dest="batch_size",
+    help="How many samples should be in each training batch?",
+    type=int,
+    default=128,
+)
+arg_parser.add_argument(
+    "--hidden-nodes",
+    dest="hidden_nodes",
+    help="How many nodes should be in each hidden layer?",
+    type=int,
+    default=128,
+)
+arg_parser.add_argument(
     "--use-cuda", dest="use_cuda", default=1, type=int, help="Use CUDA (GPU) or not?"
 )
 args = arg_parser.parse_args()
@@ -117,14 +131,13 @@ class SimpleNeuralNetwork(pl.LightningModule):
         self.half_height = self.height / 2
         self.width = width
         self.half_width = self.width / 2
-        num_hidden_nodes = 128
         self.net = nn.Sequential(
-            Siren(dim_in=2 + one_hot_vector_size, dim_out=num_hidden_nodes),
-            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
-            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
-            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
-            Siren(dim_in=num_hidden_nodes, dim_out=num_hidden_nodes),
-            nn.Linear(num_hidden_nodes, 1),
+            Siren(dim_in=2 + one_hot_vector_size, dim_out=args.hidden_nodes),
+            Siren(dim_in=args.hidden_nodes, dim_out=args.hidden_nodes),
+            Siren(dim_in=args.hidden_nodes, dim_out=args.hidden_nodes),
+            Siren(dim_in=args.hidden_nodes, dim_out=args.hidden_nodes),
+            Siren(dim_in=args.hidden_nodes, dim_out=args.hidden_nodes),
+            nn.Linear(args.hidden_nodes, 1),
             nn.LeakyReLU(),
         )
 
@@ -232,7 +245,7 @@ trainer = pl.Trainer(
 )
 
 tensor_dataset = TensorDataset(tensor_x, tensor_y)
-train_loader = DataLoader(tensor_dataset, batch_size=128, shuffle=True)
+train_loader = DataLoader(tensor_dataset, batch_size=args.batch_size, shuffle=True)
 
 # Train
 trainer.fit(nn, train_loader)
