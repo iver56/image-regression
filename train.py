@@ -95,7 +95,7 @@ dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32)).to(device)
 dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32)).to(device)
 
 image_filenames_hash = (
-    "_".join(Path(filename).stem for filename in args.image_filenames)[0:200]
+    "_".join(Path(filename).stem for filename in args.image_filenames)[0:50]
     + "_"
     + hashlib.md5(json.dumps(args.image_filenames).encode("utf-8")).hexdigest()[:8]
 )
