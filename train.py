@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -129,7 +129,12 @@ os.makedirs("output", exist_ok=True)
 os.makedirs("models", exist_ok=True)
 
 
-def save_model(model, model_name, input_example, device):
+def save_model(
+    model: Union[torch.nn.Module, pl.LightningModule],
+    model_name: str,
+    input_example: torch.Tensor,
+    device: torch.device,
+):
     print("Saving model...")
     model_training = model.training
     model_device = model.device
