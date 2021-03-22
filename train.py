@@ -24,7 +24,7 @@ arg_parser.add_argument(
     dest="image_filenames",
     nargs="+",
     type=str,
-    help="File name(s) of input image(s)",
+    help="File name(s) of input image(s). They are assumed to be in the input_images folder",
     default=["keyboard.png"],
 )
 arg_parser.add_argument(
@@ -68,7 +68,9 @@ images = []
 dx_images = []
 dy_images = []
 for image_filename in args.image_filenames:
-    image = np.array(Image.open(image_filename).convert("L"))
+    image = np.array(
+        Image.open(os.path.join("input_images", image_filename)).convert("L")
+    )
     image = np.divide(image, 255.0, dtype=np.float32)
     images.append(image)
 
@@ -299,11 +301,3 @@ save_model(
     input_example=tensor_x[0:128],
     device=device,
 )
-
-# Predict
-"""
-with torch.no_grad():
-    predicted_image = nn(tensor_x).numpy().reshape(image.shape)
-    print("\nPredicted image:")
-    print(predicted_image)
-"""

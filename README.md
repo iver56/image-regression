@@ -28,9 +28,9 @@ or, in the case of a color image:
 
 | Name | Original | Learned image |
 | ---- | -------- | ------------- |
-| Keyboard | ![Original image](keyboard.png) | ![Learned image](keyboard-learned.gif) |
-| 8x8 Checkerboard | ![Original image](chess.png) | ![Learned image](chess-learned.gif) |
+| Keyboard | ![Original image](input_images/keyboard.png) | ![Learned image](demo/keyboard-learned.gif) |
+| 8x8 Checkerboard | ![Original image](input_images/chess.png) | ![Learned image](demo/chess-learned.gif) |
 
 The following animation visualizes the output of a neural network that was trained on 12 different images (different rotations of boxy stripes). The input vectors are constructed to interpolate between the 12 images, so we get a kind of morphing effect.
 
-![Boxy stripes](boxy_stripes_interpolation.gif)
+![Boxy stripes](demo/boxy_stripes_interpolation.gif)
