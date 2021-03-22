@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -91,9 +92,11 @@ for image in images:
 dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32)).to(device)
 dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32)).to(device)
 
-image_filenames_hash = hashlib.md5(
-    json.dumps(args.image_filenames).encode("utf-8")
-).hexdigest()[:8]
+image_filenames_hash = (
+    "_".join(Path(filename).stem for filename in args.image_filenames)[0:200]
+    + "_"
+    + hashlib.md5(json.dumps(args.image_filenames).encode("utf-8")).hexdigest()[:8]
+)
 num_images = len(images)
 one_hot_vector_size = num_images if num_images > 1 else 0
 
@@ -123,6 +126,27 @@ tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
 tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
 
 os.makedirs("output", exist_ok=True)
+os.makedirs("models", exist_ok=True)
+
+
+def save_model(model, model_name, input_example, device):
+    print("Saving model...")
+    model_training = model.training
+    model_device = model.device
+
+    model_on_device = model.to(device)
+    if model_training:
+        model_on_device.eval()  # Set eval mode
+    with torch.no_grad():
+        traced_model = torch.jit.trace(model_on_device, input_example.to(device))
+    torch.jit.save(
+        traced_model,
+        os.path.join("models", "{}_{}.torchscript".format(model_name, device)),
+    )
+
+    model.to(model_device)
+    if model_training:
+        model.train()  # Set back to train mode
 
 
 class SimpleNeuralNetwork(pl.LightningModule):
@@ -146,7 +170,11 @@ class SimpleNeuralNetwork(pl.LightningModule):
         inputs[:, 0] = inputs[:, 0] / self.half_height
         inputs[:, 1] = inputs[:, 1] / self.half_width
         inputs[:, 0:2] = 3.14 * (1 - inputs[:, 0:2])
-        return differential_clamp(self.net(inputs), min_val=0.0, max_val=1.0)
+        net_output = self.net(inputs)
+        if self.training:
+            return differential_clamp(net_output, min_val=0.0, max_val=1.0)
+        else:
+            return torch.clamp(net_output, min=0.0, max=1.0)
 
     def training_step(self, batch, batch_idx):
         x, y = batch
@@ -259,6 +287,13 @@ train_loader = DataLoader(tensor_dataset, batch_size=args.batch_size, shuffle=Tr
 
 # Train
 trainer.fit(nn, train_loader)
+
+save_model(
+    model=nn,
+    model_name=image_filenames_hash,
+    input_example=tensor_x[0:128],
+    device=device,
+)
 
 # Predict
 """
