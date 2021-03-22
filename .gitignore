@@ -98,3 +98,4 @@ ENV/
 # Data
 output/*
 models/*
+interpolated_output/*
