@@ -3,6 +3,7 @@ import os
 
 import math
 import numpy as np
+import onnxruntime
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -61,7 +62,10 @@ if __name__ == "__main__":
 
     image_shape = (args.image_height, args.image_width)
 
-    model = torch.jit.load(os.path.join("models", args.model_filename))
+    model_file_path = os.path.join("models", args.model_filename)
+    model = onnxruntime.InferenceSession(model_file_path)
+    input_name = model.get_inputs()[0].name
+    output_name = model.get_outputs()[0].name
 
     image_datasets = []
 
@@ -103,19 +107,16 @@ if __name__ == "__main__":
                     x.append(vector)
 
             x = np.array(x, dtype=np.float32)
-            tensor_x = torch.from_numpy(x).to(device)
 
             predicted_pixels = np.zeros(
                 shape=(image_shape[0] * image_shape[1], 1),
                 dtype=np.float32,
             )
             with torch.no_grad():
-                for offset in range(0, tensor_x.shape[0], batch_size):
-                    pred = (
-                        model.forward(tensor_x[offset : offset + batch_size])
-                        .cpu()
-                        .numpy()
-                    )
+                for offset in range(0, x.shape[0], batch_size):
+                    pred = model.run(
+                        [output_name], {input_name: x[offset : offset + batch_size]}
+                    )[0]
                     predicted_pixels[offset : offset + pred.shape[0]] = pred
 
             predicted_image = predicted_pixels.reshape(image_shape)

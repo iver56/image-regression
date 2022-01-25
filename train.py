@@ -135,25 +135,24 @@ def save_model(
     model: Union[torch.nn.Module, pl.LightningModule],
     model_name: str,
     input_example: torch.Tensor,
-    device: torch.device,
 ):
     print("Saving model...")
-    model_training = model.training
-    model_device = model.device
 
-    model_on_device = model.to(device)
-    if model_training:
-        model_on_device.eval()  # Set eval mode
-    with torch.no_grad():
-        traced_model = torch.jit.trace(model_on_device, input_example.to(device))
-    torch.jit.save(
-        traced_model,
-        os.path.join("models", "{}_{}.torchscript".format(model_name, device)),
+    file_path = os.path.join("models", f"{model_name}.onnx")
+    torch.onnx.export(
+        model,
+        input_example,  # model input (or a tuple for multiple inputs)
+        file_path,  # where to save the model (can be a file or file-like object)
+        export_params=True,  # store the trained parameter weights inside the model file
+        opset_version=11,  # the ONNX version to export the model to
+        do_constant_folding=True,  # whether to execute constant folding for optimization
+        input_names=["input"],  # the model's input names
+        output_names=["output"],  # the model's output names
+        dynamic_axes={
+            "input": {0: "batch_size"},  # variable length axes
+            "output": {0: "batch_size"},
+        },
     )
-
-    model.to(model_device)
-    if model_training:
-        model.train()  # Set back to train mode
 
 
 class SimpleNeuralNetwork(pl.LightningModule):
@@ -299,5 +298,4 @@ save_model(
     model=nn,
     model_name=image_filenames_hash,
     input_example=tensor_x[0:128],
-    device=device,
 )
