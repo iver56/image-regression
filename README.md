@@ -5,7 +5,7 @@ A toy application that learns a mapping from (x, y) coordinates to color. Uses p
 ## Usage
 
 ### Train on a single greyscale image
-`python train.py -i keyboard.png --num-epochs 1000`
+`python train.py -i keyboard.png --num-epochs 150`
 
 ### Train on a single color image (RGBA)
 
