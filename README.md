@@ -20,7 +20,7 @@ TODO
 
 ### Interpolate between the images:
 
-TODO
+`python interpolate_between_many.py --width 64 --height 64 --num-images 4 --model boxy_stripes2_boxy_stripes2_30_boxy_stripes2_60_bo_2f59b848.onnx --use-cuda 0`
 
 ## Examples
 
