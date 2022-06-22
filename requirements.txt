@@ -1,5 +1,5 @@
 numpy==1.22.0
-Pillow==9.0.0
+Pillow==9.0.1
 pytorch-lightning==1.2.4
 torch==1.8.0
 tqdm
