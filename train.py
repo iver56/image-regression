@@ -130,6 +130,8 @@ tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
 os.makedirs("output", exist_ok=True)
 os.makedirs("models", exist_ok=True)
 
+epoch_end_outputs = None
+
 
 def save_model(
     model: Union[torch.nn.Module, pl.LightningModule],
@@ -229,10 +231,10 @@ class SimpleNeuralNetwork(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.5)
         return [optimizer], [scheduler]
 
-    def on_train_epoch_end(self, outputs: Any) -> None:
-        # We must implement this, or else SaveCheckpointImages.on_train_epoch_end
-        # won't get any outputs
-        pass
+    def training_epoch_end(self, outputs):
+        # Hacky way of keeping outputs around so SaveCheckpointImages can access them
+        global epoch_end_outputs
+        epoch_end_outputs = outputs
 
 
 class SaveCheckpointImages(pl.Callback):
@@ -240,10 +242,9 @@ class SaveCheckpointImages(pl.Callback):
         self.last_loss_checkpoint = float("inf")
         self.loss_change_threshold = 0.05
 
-    def on_train_epoch_end(
-        self, trainer, pl_module: pl.LightningModule, outputs: Any
-    ) -> None:
-        step_losses = [step["loss"].item() for step in outputs]
+    def on_train_epoch_end(self, trainer, pl_module: pl.LightningModule) -> None:
+        global epoch_end_outputs
+        step_losses = [step["loss"].item() for step in epoch_end_outputs]
         avg_loss = np.mean(step_losses)
         print("Loss: {:.6f}".format(avg_loss))
         loss_change = 1 - avg_loss / self.last_loss_checkpoint
