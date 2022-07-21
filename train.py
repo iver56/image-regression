@@ -283,7 +283,7 @@ class SaveCheckpointImages(pl.Callback):
 nn = SimpleNeuralNetwork(img_height, img_width)
 trainer = pl.Trainer(
     max_epochs=args.num_epochs,
-    checkpoint_callback=False,
+    enable_checkpointing=False,
     logger=False,
     callbacks=[SaveCheckpointImages()],
     gpus=1 if use_cuda else 0,
