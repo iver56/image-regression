@@ -13,7 +13,7 @@ from utils.gif import make_gif
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument(
-        "--num-images", help="Number of images", dest="num_images", type=int
+        "--num-images", help="Number of images", dest="num_images", type=int, default=1
     )
     arg_parser.add_argument("--width", help="Image width", dest="image_width", type=int)
     arg_parser.add_argument(
