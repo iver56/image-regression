@@ -9,9 +9,10 @@ dependencies:
   - python=3.8.12
   - pytorch::pytorch=1.12.0
   - pip:
+    - imageio==2.19.5
     - onnxruntime==1.10.0
     - Pillow==9.0.1
     - pytorch-lightning==1.6.5
-    - siren-pytorch==0.0.9
+    - siren-pytorch==0.1.6
     - torchmetrics==0.8.2
     - tqdm
