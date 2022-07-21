@@ -1,0 +1,17 @@
+name: image-regression
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - cudatoolkit=11.3
+  - numpy>=1.22,<2
+  - pip=22.1
+  - python=3.8.12
+  - pytorch::pytorch=1.12.0
+  - pip:
+    - onnxruntime==1.10.0
+    - Pillow==9.0.1
+    - pytorch-lightning==1.6.5
+    - siren-pytorch==0.0.9
+    - torchmetrics==0.8.2
+    - tqdm

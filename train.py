@@ -214,6 +214,15 @@ if __name__ == "__main__":
         type=int,
         help="Use CUDA (GPU) or not?",
     )
+    arg_parser.add_argument(
+        "--precision",
+        dest="precision",
+        default=32,
+        type=int,
+        choices=[16, 32],
+        help="Use fp32 or fp16 (mixed precision)?",
+    )
+
     args = arg_parser.parse_args()
 
     warnings.filterwarnings(
@@ -302,6 +311,9 @@ if __name__ == "__main__":
         logger=False,
         callbacks=[SaveCheckpointImages()],
         gpus=1 if use_cuda else 0,
+        precision=args.precision,
+        accelerator="gpu" if use_cuda else "cpu",
+        auto_select_gpus=True
     )
 
     tensor_dataset = TensorDataset(tensor_x, tensor_y)
@@ -313,5 +325,5 @@ if __name__ == "__main__":
     save_model(
         model=nn,
         model_name=image_filenames_hash,
-        input_example=tensor_x[0:128],
+        input_example=tensor_x[0:128].to(nn.device),
     )
