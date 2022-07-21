@@ -18,118 +18,6 @@ from torch.utils.data import TensorDataset, DataLoader
 
 from utils.differentiable_clamp import differential_clamp
 
-arg_parser = argparse.ArgumentParser()
-arg_parser.add_argument(
-    "-i",
-    dest="image_filenames",
-    nargs="+",
-    type=str,
-    help="File name(s) of input image(s). They are assumed to be in the input_images folder",
-    default=["keyboard.png"],
-)
-arg_parser.add_argument(
-    "--edge-loss-factor",
-    dest="edge_loss_factor",
-    type=float,
-    help="How much should edges (differences between 4-connected neighbour pixels) be weighted",
-    default=0.0,
-)
-arg_parser.add_argument(
-    "--num-epochs", help="Number of epochs", dest="num_epochs", type=int, default=750
-)
-arg_parser.add_argument(
-    "--batch-size",
-    dest="batch_size",
-    help="How many samples should be in each training batch?",
-    type=int,
-    default=256,
-)
-arg_parser.add_argument(
-    "--hidden-nodes",
-    dest="hidden_nodes",
-    help="How many nodes should be in each hidden layer?",
-    type=int,
-    default=150,
-)
-arg_parser.add_argument(
-    "--use-cuda", dest="use_cuda", default=1, type=int, help="Use CUDA (GPU) or not?"
-)
-args = arg_parser.parse_args()
-
-use_cuda = args.use_cuda
-if use_cuda and not torch.cuda.is_available():
-    print("Warning: Trying to use CUDA, but it is not available")
-    use_cuda = False
-device = torch.device("cuda" if use_cuda else "cpu")
-
-half_edge_loss_factor = args.edge_loss_factor / 2
-
-images = []
-dx_images = []
-dy_images = []
-for image_filename in args.image_filenames:
-    image = np.array(
-        Image.open(os.path.join("input_images", image_filename)).convert("L")
-    )
-    image = np.divide(image, 255.0, dtype=np.float32)
-    images.append(image)
-
-    image_shifted_right = np.copy(image)
-    image_shifted_right[:, 1:] = image[:, :-1]
-    image_shifted_down = np.copy(image)
-    image_shifted_down[1:, :] = image[:-1, :]
-
-    dx_gt = image - image_shifted_right
-    dx_images.append(dx_gt)
-    dy_gt = image - image_shifted_down
-    dy_images.append(dy_gt)
-
-    del dx_gt, dy_gt
-
-img_height, img_width = images[0].shape
-# check that all images have the same dimensions
-for image in images:
-    assert image.shape == images[0].shape
-
-dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32)).to(device)
-dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32)).to(device)
-
-image_filenames_hash = (
-    "_".join(Path(filename).stem for filename in args.image_filenames)[0:50]
-    + "_"
-    + hashlib.md5(json.dumps(args.image_filenames).encode("utf-8")).hexdigest()[:8]
-)
-num_images = len(images)
-one_hot_vector_size = num_images if num_images > 1 else 0
-
-# Prepare dataset
-x = []
-y = []
-image_datasets = []
-for k, image in enumerate(images):
-    image_dataset_x = []
-    image_dataset_y = []
-    one_hot_vector = [0.0] * one_hot_vector_size
-    if one_hot_vector_size >= 1:
-        one_hot_vector[k] = 1.0
-    for i in range(img_height):
-        for j in range(img_width):
-            vector = [i, j] + one_hot_vector
-            image_dataset_x.append(vector)
-            image_dataset_y.append([image[i][j]])
-
-    x += image_dataset_x
-    y += image_dataset_y
-    image_dataset_x = np.array(image_dataset_x)
-    image_dataset_y = np.array(image_dataset_y)
-    image_datasets.append((image_dataset_x, image_dataset_y))
-
-tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
-tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
-
-os.makedirs("output", exist_ok=True)
-os.makedirs("models", exist_ok=True)
-
 epoch_end_outputs = None
 
 
@@ -280,23 +168,144 @@ class SaveCheckpointImages(pl.Callback):
                 ).save(output_file_path)
 
 
-nn = SimpleNeuralNetwork(img_height, img_width)
-trainer = pl.Trainer(
-    max_epochs=args.num_epochs,
-    enable_checkpointing=False,
-    logger=False,
-    callbacks=[SaveCheckpointImages()],
-    gpus=1 if use_cuda else 0,
-)
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument(
+        "-i",
+        dest="image_filenames",
+        nargs="+",
+        type=str,
+        help="File name(s) of input image(s). They are assumed to be in the input_images folder",
+        default=["keyboard.png"],
+    )
+    arg_parser.add_argument(
+        "--edge-loss-factor",
+        dest="edge_loss_factor",
+        type=float,
+        help="How much should edges (differences between 4-connected neighbour pixels) be weighted",
+        default=0.0,
+    )
+    arg_parser.add_argument(
+        "--num-epochs",
+        help="Number of epochs",
+        dest="num_epochs",
+        type=int,
+        default=750,
+    )
+    arg_parser.add_argument(
+        "--batch-size",
+        dest="batch_size",
+        help="How many samples should be in each training batch?",
+        type=int,
+        default=256,
+    )
+    arg_parser.add_argument(
+        "--hidden-nodes",
+        dest="hidden_nodes",
+        help="How many nodes should be in each hidden layer?",
+        type=int,
+        default=150,
+    )
+    arg_parser.add_argument(
+        "--use-cuda",
+        dest="use_cuda",
+        default=1,
+        type=int,
+        help="Use CUDA (GPU) or not?",
+    )
+    args = arg_parser.parse_args()
 
-tensor_dataset = TensorDataset(tensor_x, tensor_y)
-train_loader = DataLoader(tensor_dataset, batch_size=args.batch_size, shuffle=True)
+    use_cuda = args.use_cuda
+    if use_cuda and not torch.cuda.is_available():
+        print("Warning: Trying to use CUDA, but it is not available")
+        use_cuda = False
+    device = torch.device("cuda" if use_cuda else "cpu")
 
-# Train
-trainer.fit(nn, train_loader)
+    half_edge_loss_factor = args.edge_loss_factor / 2
 
-save_model(
-    model=nn,
-    model_name=image_filenames_hash,
-    input_example=tensor_x[0:128],
-)
+    images = []
+    dx_images = []
+    dy_images = []
+    for image_filename in args.image_filenames:
+        image = np.array(
+            Image.open(os.path.join("input_images", image_filename)).convert("L")
+        )
+        image = np.divide(image, 255.0, dtype=np.float32)
+        images.append(image)
+
+        image_shifted_right = np.copy(image)
+        image_shifted_right[:, 1:] = image[:, :-1]
+        image_shifted_down = np.copy(image)
+        image_shifted_down[1:, :] = image[:-1, :]
+
+        dx_gt = image - image_shifted_right
+        dx_images.append(dx_gt)
+        dy_gt = image - image_shifted_down
+        dy_images.append(dy_gt)
+
+        del dx_gt, dy_gt
+
+    img_height, img_width = images[0].shape
+    # check that all images have the same dimensions
+    for image in images:
+        assert image.shape == images[0].shape
+
+    dx_images = torch.from_numpy(np.array(dx_images, dtype=np.float32)).to(device)
+    dy_images = torch.from_numpy(np.array(dy_images, dtype=np.float32)).to(device)
+
+    image_filenames_hash = (
+        "_".join(Path(filename).stem for filename in args.image_filenames)[0:50]
+        + "_"
+        + hashlib.md5(json.dumps(args.image_filenames).encode("utf-8")).hexdigest()[:8]
+    )
+    num_images = len(images)
+    one_hot_vector_size = num_images if num_images > 1 else 0
+
+    # Prepare dataset
+    x = []
+    y = []
+    image_datasets = []
+    for k, image in enumerate(images):
+        image_dataset_x = []
+        image_dataset_y = []
+        one_hot_vector = [0.0] * one_hot_vector_size
+        if one_hot_vector_size >= 1:
+            one_hot_vector[k] = 1.0
+        for i in range(img_height):
+            for j in range(img_width):
+                vector = [i, j] + one_hot_vector
+                image_dataset_x.append(vector)
+                image_dataset_y.append([image[i][j]])
+
+        x += image_dataset_x
+        y += image_dataset_y
+        image_dataset_x = np.array(image_dataset_x)
+        image_dataset_y = np.array(image_dataset_y)
+        image_datasets.append((image_dataset_x, image_dataset_y))
+
+    tensor_x = torch.from_numpy(np.array(x, dtype=np.float32)).to(device)
+    tensor_y = torch.from_numpy(np.array(y, dtype=np.float32)).to(device)
+
+    os.makedirs("output", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+
+    nn = SimpleNeuralNetwork(img_height, img_width)
+    trainer = pl.Trainer(
+        max_epochs=args.num_epochs,
+        enable_checkpointing=False,
+        logger=False,
+        callbacks=[SaveCheckpointImages()],
+        gpus=1 if use_cuda else 0,
+    )
+
+    tensor_dataset = TensorDataset(tensor_x, tensor_y)
+    train_loader = DataLoader(tensor_dataset, batch_size=args.batch_size, shuffle=True)
+
+    # Train
+    trainer.fit(nn, train_loader)
+
+    save_model(
+        model=nn,
+        model_name=image_filenames_hash,
+        input_example=tensor_x[0:128],
+    )
