@@ -243,7 +243,7 @@ class SaveCheckpointImages(pl.Callback):
     def on_train_epoch_end(
         self, trainer, pl_module: pl.LightningModule, outputs: Any
     ) -> None:
-        step_losses = [step[0]["minimize"].item() for step in outputs[0]]
+        step_losses = [step["loss"].item() for step in outputs]
         avg_loss = np.mean(step_losses)
         print("Loss: {:.6f}".format(avg_loss))
         loss_change = 1 - avg_loss / self.last_loss_checkpoint
