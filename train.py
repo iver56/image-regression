@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any, Union
 
@@ -214,6 +215,11 @@ if __name__ == "__main__":
         help="Use CUDA (GPU) or not?",
     )
     args = arg_parser.parse_args()
+
+    warnings.filterwarnings(
+        "ignore",
+        ".*does not have many workers.*",
+    )
 
     use_cuda = args.use_cuda
     if use_cuda and not torch.cuda.is_available():
